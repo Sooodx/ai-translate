@@ -1,0 +1,17 @@
+# 打包产物
+*.zip
+*.xpi
+
+# 文档（发布时不需要）
+translate-plugin-docs/
+
+# IDE
+.idea/
+*.iml
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 计划文件
+ROADMAP.md

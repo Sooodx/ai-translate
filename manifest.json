@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "AI Translate",
+  "version": "1.0.0",
+  "description": "划词翻译扩展：调用你自填的 AI API 进行流式翻译，默认英译中，支持多语言切换。",
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["providers/openai.js", "providers/index.js", "background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "AI Translate 设置",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    }
+  },
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  }
+}

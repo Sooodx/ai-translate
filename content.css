@@ -1,0 +1,9 @@
+/* content.css
+   气泡全部 UI 在 Shadow DOM 内，样式与宿主页面完全隔离。
+   宿主元素（.ait-host）默认 inline，不占布局、不影响页面。 */
+.ait-host {
+  all: initial;
+  position: fixed;
+  z-index: 2147483646; /* 仅低于极端层级 */
+  display: block;
+}
