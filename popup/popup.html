@@ -99,6 +99,16 @@
     <select id="targetLang"></select>
   </div>
 
+  <div class="field">
+    <label for="triggerMode">翻译触发方式</label>
+    <select id="triggerMode">
+      <option value="click">点击气泡后翻译（推荐）</option>
+      <option value="auto">选中后自动翻译</option>
+      <option value="contextmenu">仅右键菜单翻译</option>
+    </select>
+    <span class="hint">"点击气泡后翻译"：选中文字后弹出气泡，点击按钮再翻译。</span>
+  </div>
+
   <div class="actions">
     <button id="test" class="btn-ghost" type="button">测试连接</button>
     <button id="save" class="btn-primary" type="button">保存</button>

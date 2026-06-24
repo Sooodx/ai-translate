@@ -32,10 +32,15 @@ function getValidSelection() {
   return { text, rect };
 }
 
-document.addEventListener('mouseup', (e) => {
+document.addEventListener('mouseup', async (e) => {
+  // 右键点击不触发划词翻译（留给右键菜单处理）
+  if (e.button === 2) return;
   console.log('[AIT] mouseup, target:', e.target?.tagName, 'currentBubble存在:', !!currentBubble);
+  const mode = await getTriggerMode();
+  // 仅右键模式：不响应划词
+  if (mode === 'contextmenu') return;
   // 略微延迟，让 selection 稳定
-  setTimeout(() => {
+  setTimeout(async () => {
     // 关闭气泡后 300ms 内跳过，防止点击 × 关闭后立即重新弹出
     if (Date.now() - closeCooldown < 300) return;
     // 选中气泡内文字（如复制部分译文）不触发翻译
@@ -43,23 +48,36 @@ document.addEventListener('mouseup', (e) => {
     const sel = getValidSelection();
     if (!sel) return;
     lastSelection = sel;
-    startTranslation(sel);
+
+    if (mode === 'auto') {
+      // 自动模式：直接翻译
+      startTranslation(sel);
+    } else {
+      // 点击模式：弹出小图标，点击后展开翻译
+      showMiniBubble(sel);
+    }
   }, 10);
 });
 
 // 兼容：右键菜单点击后由 background 发来消息
 api.runtime.onMessage.addListener((msg) => {
   if (msg?.type === 'translate-selection' && msg.text) {
-    // 用当前光标位置或视口中央放置气泡
-    const fake = {
-      text: msg.text,
-      rect: {
-        left: window.innerWidth / 2 - 160,
-        top: window.innerHeight / 2 - 40,
-        width: 0,
-        height: 0,
-      },
-    };
+    // 尝试获取真实选区位置，失败则用视口中央
+    let rect = { left: window.innerWidth / 2 - 160, top: window.innerHeight / 2 - 80 };
+    try {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) {
+        const r = sel.getRangeAt(0).getBoundingClientRect();
+        if (r.width > 0 || r.height > 0) {
+          rect = { left: r.left, top: r.top, width: r.width, height: r.height,
+                   get bottom() { return this.top + this.height; },
+                   get right() { return this.left + this.width; } };
+        }
+      }
+    } catch { /* 用默认位置 */ }
+    rect = { ...rect, get bottom() { return this.top + this.height; }, get right() { return this.left + this.width; } };
+
+    const fake = { text: msg.text, rect };
     lastSelection = fake;
     startTranslation(fake);
   }
@@ -75,17 +93,57 @@ async function getDefaultLang() {
   }
 }
 
+// ── 读取翻译触发模式 ─────────────────────────────────────
+async function getTriggerMode() {
+  try {
+    const stored = await api.storage.local.get(STORAGE_KEY);
+    return stored?.[STORAGE_KEY]?.triggerMode || 'click';
+  } catch {
+    return 'click';
+  }
+}
+
 // ── 启动一次翻译（创建/复用气泡）────────────────────────
-async function startTranslation(sel) {
+async function startTranslation(sel, overrideLang) {
   // 中断上一个进行中的流
   if (activePort) {
     try { activePort.disconnect(); } catch { /* ignore */ }
     activePort = null;
   }
 
-  const lang = await getDefaultLang();
+  const lang = overrideLang || await getDefaultLang();
   renderBubble(sel.rect, '', { state: 'loading', lang });
   runStream(sel.text, lang);
+}
+
+// ── 点击模式：弹出小图标气泡 ─────────────────────────────
+function showMiniBubble(sel) {
+  removeBubble();
+
+  const host = document.createElement('div');
+  host.className = 'ait-host ait-mini-host';
+  // 定位在选区末尾附近
+  const top = Math.min(sel.rect.bottom + 8, window.innerHeight - 56);
+  const left = Math.max(8, Math.min(sel.rect.right + 4, window.innerWidth - 48));
+  host.style.top = `${top}px`;
+  host.style.left = `${left}px`;
+  host.innerHTML = `<style>${MINI_CSS}</style><div class="ait-mini" title="翻译">译</div>`;
+  document.documentElement.appendChild(host);
+
+  const btn = host.querySelector('.ait-mini');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeBubble();
+    startTranslation(sel);
+  });
+
+  currentBubble = { host, shadow: null, body: null, copyBtn: null, langSelect: null };
+
+  // 点击空白区域关闭
+  setTimeout(() => {
+    document.addEventListener('mousedown', onOutsideClick, true);
+  }, 0);
+  document.addEventListener('keydown', onEscKey, true);
 }
 
 // 用指定语言重译：复用当前气泡与下拉选择，不重建 DOM、不覆盖 select。
@@ -253,7 +311,28 @@ function onEscKey(e) {
   if (e.key === 'Escape') removeBubble();
 }
 
-// ── Shadow DOM 内样式 ────────────────────────────────────
+// ── 小图标气泡样式（点击模式）────────────────────────────
+const MINI_CSS = `
+  .ait-mini {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #185fa5;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.22);
+    transition: transform .15s;
+    user-select: none;
+  }
+  .ait-mini:hover { transform: scale(1.1); }
+`;
+
+// ── Shadow DOM 内样式（完整翻译气泡）─────────────────────
 const SHADOW_CSS = `
   :host, .ait-bubble { all: initial; }
   .ait-bubble {

@@ -10,6 +10,7 @@ const DEFAULTS = {
   baseUrl: 'https://api.openai.com/v1',
   model: 'gpt-4o-mini',
   targetLang: '简体中文',
+  triggerMode: 'click',
 };
 
 // 与 content.js 保持一致的语言列表
@@ -75,6 +76,7 @@ async function load() {
   $('apiKey').value = cfg.apiKey || '';
   fillLangs();
   $('targetLang').value = cfg.targetLang;
+  $('triggerMode').value = cfg.triggerMode || DEFAULTS.triggerMode;
 
   // 恢复缓存的模型列表
   if (stored[STORAGE_KEY]?._modelCache?.length) {
@@ -92,6 +94,7 @@ function gatherConfig() {
     apiKey: $('apiKey').value.trim(),
     model: getModelValue() || DEFAULTS.model,
     targetLang: $('targetLang').value,
+    triggerMode: $('triggerMode').value,
   };
 }
 
@@ -238,7 +241,7 @@ async function testConnection() {
 document.addEventListener('DOMContentLoaded', load);
 
 // 自动保存：所有字段变更时触发
-['provider', 'baseUrl', 'apiKey', 'targetLang'].forEach((id) => {
+['provider', 'baseUrl', 'apiKey', 'targetLang', 'triggerMode'].forEach((id) => {
   $(id).addEventListener('input', autoSave);
   $(id).addEventListener('change', autoSave);
 });
